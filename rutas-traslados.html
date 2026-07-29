@@ -106,6 +106,25 @@
     font-size:11.5px; color:var(--alert); font-weight:600; margin-top:3px;
   }
 
+  .next-eyebrow{
+    font-family:'IBM Plex Mono',monospace; font-size:11.5px; text-transform:uppercase; letter-spacing:0.08em;
+    color:var(--accent,#0B6E63); font-weight:700; margin-bottom:8px;
+  }
+  .next-done{
+    text-align:center; padding:18px 16px; font-weight:700; font-size:15px; color:var(--ok);
+    background:var(--ok-soft); border-radius:14px; margin-bottom:16px;
+  }
+  .stop.next-card{
+    border:2.5px solid var(--accent,#0B6E63); background:var(--accent-soft,#E3F0EC);
+    padding:16px; margin-bottom:20px;
+  }
+  .stop.next-card::before{ display:none; }
+  .stop.next-card .stop-kind{ font-size:17px; }
+  .stop.next-card .stop-nombre{ font-size:18px; }
+  .stop.next-card .stop-hora{ font-size:17px; }
+  .stop.next-card .stop-check{ width:34px; height:34px; }
+  .stop.next-card .check-wrap{ width:52px; height:52px; }
+
   .section-title{ display:flex; align-items:baseline; justify-content:space-between; margin:22px 0 12px; }
   .section-title:first-child{margin-top:0;}
   .section-title h2{font-size:18px;}
@@ -133,12 +152,16 @@
   .stop.ausente .stop-nombre, .stop.ausente .stop-ruta{text-decoration:line-through;}
 
   .stop-top{ display:flex; align-items:flex-start; gap:10px; }
-  .stop-check{ width:22px;height:22px; flex:none; margin-top:2px; accent-color:var(--ok); cursor:pointer; }
-  .stop-hora{ font-family:'IBM Plex Mono',monospace; font-weight:600; font-size:14px; min-width:44px; }
+  .check-wrap{
+    display:flex; align-items:center; justify-content:center;
+    width:46px; height:46px; flex:none; margin:-10px -6px -10px -10px; cursor:pointer;
+  }
+  .stop-check{ width:30px;height:30px; flex:none; accent-color:var(--ok); cursor:pointer; }
+  .stop-hora{ font-family:'IBM Plex Mono',monospace; font-weight:600; font-size:14px; min-width:44px; margin-top:4px; }
   .stop-body{flex:1;}
   .stop-kind{
-    font-family:'IBM Plex Mono',monospace; font-size:10px; text-transform:uppercase; letter-spacing:0.05em;
-    color:var(--ink-soft); font-weight:600;
+    font-family:'Inter',sans-serif; font-size:15.5px; text-transform:uppercase; letter-spacing:0.03em;
+    color:var(--accent,#0B6E63); font-weight:800; margin-bottom:2px;
   }
   .stop-nombre{font-weight:700; font-size:15.5px;}
   .stop-nombre .badge{
@@ -185,6 +208,7 @@
     font-family:'Inter',sans-serif; font-size:14.5px; background:var(--bg); color:var(--ink);
   }
   .field textarea{resize:vertical; min-height:44px;}
+  .hint{ font-size:11.5px; color:var(--ink-soft); margin-top:5px; line-height:1.4; }
   .field-2col{display:flex; gap:10px;}
   .field-2col .field{flex:1;}
   .radio-group{display:flex; gap:8px; flex-wrap:wrap;}
@@ -274,13 +298,17 @@
         <label><input type="checkbox" value="3"><span>M</span></label>
         <label><input type="checkbox" value="4"><span>J</span></label>
         <label><input type="checkbox" value="5"><span>V</span></label>
-        <label><input type="checkbox" value="6"><span>S</span></label>
-        <label><input type="checkbox" value="0"><span>D</span></label>
       </div>
     </div>
     <div class="field" id="grupo-fecha" style="display:none;">
       <label>Fecha</label>
       <input type="date" id="f-fecha">
+    </div>
+
+    <div class="field">
+      <label>WhatsApp del pap&aacute;/mam&aacute; (opcional)</label>
+      <input type="text" id="f-telefono" placeholder="Ej: 5493511234567">
+      <div class="hint">C&oacute;digo de pa&iacute;s + n&uacute;mero, sin espacios ni guiones ni el "+". Para Argentina celular: 54 9 + c&oacute;digo de &aacute;rea + n&uacute;mero.</div>
     </div>
 
     <div class="field"><label>Notas (opcional)</label><textarea id="f-notas" placeholder="Ej: llevar mochila de kinesiolog&iacute;a"></textarea></div>
@@ -299,7 +327,7 @@ const PALETTE = [
   {c:'#0B6E63', s:'#E3F0EC'}, {c:'#7A3B69', s:'#F1E4EC'}, {c:'#3B5B92', s:'#E4EAF5'},
   {c:'#8A5A2A', s:'#F3E7D8'}, {c:'#4A6741', s:'#E7EEE3'}, {c:'#8A3A4A', s:'#F3E0E3'}
 ];
-const DIAS_ORDEN = [1,2,3,4,5,6,0];
+const DIAS_ORDEN = [1,2,3,4,5];
 const DIAS_LABEL = {0:'Dom',1:'Lun',2:'Mar',3:'Mi\u00e9',4:'Jue',5:'Vie',6:'S\u00e1b'};
 
 // ====== CONFIGURACIÓN DE SINCRONIZACIÓN ======
@@ -360,7 +388,7 @@ function saveData(){ saveLocal(); pushRemote(); }
 
 let data = loadLocal();
 let currentTab = null;
-let selectedDow = new Date().getDay();
+let selectedDow = [1,2,3,4,5].includes(new Date().getDay()) ? new Date().getDay() : 1;
 let editingId = null;
 
 function todayISO(){ const d=new Date(); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
@@ -380,6 +408,9 @@ function renderHeaderFecha(){
 function getAuto(id){ return data.autos.find(a => String(a.id) === String(id)); }
 
 function mapsLinkSingle(direccion){ return 'https://www.google.com/maps/dir/?api=1&destination=' + encodeURIComponent(direccion) + '&travelmode=driving'; }
+function waLink(telefono){
+  return 'https://wa.me/' + telefono;
+}
 function mapsLinkRuta(direcciones){
   if(direcciones.length === 0) return null;
   if(direcciones.length === 1) return mapsLinkSingle(direcciones[0]);
@@ -403,8 +434,8 @@ function buildSteps(autoId, dow){
   ents.forEach(e => {
     const ausenteKey = e.id + '|' + iso;
     const ausente = isToday && !!data.ausencias[ausenteKey];
-    steps.push({entryId:e.id, kind:'recogida', hora:e.horaRecogida||'00:00', nombre:e.nombre, lugar:e.origen, direccion: e.direccionOrigen||e.origen, notas:e.notas, ausente});
-    steps.push({entryId:e.id, kind:'entrega', hora:e.horaEntrega||'00:00', nombre:e.nombre, lugar:e.destino, direccion: e.direccionEntrega||e.destino, tipo:e.tipo, notas:e.notas, ausente});
+    steps.push({entryId:e.id, kind:'recogida', hora:e.horaRecogida||'00:00', nombre:e.nombre, lugar:e.origen, direccion: e.direccionOrigen||e.origen, notas:e.notas, telefono:e.telefono, ausente});
+    steps.push({entryId:e.id, kind:'entrega', hora:e.horaEntrega||'00:00', nombre:e.nombre, lugar:e.destino, direccion: e.direccionEntrega||e.destino, tipo:e.tipo, notas:e.notas, telefono:e.telefono, ausente});
   });
   steps.sort((a,b) => a.hora.localeCompare(b.hora));
 
@@ -437,17 +468,16 @@ function ocupacionEnVivo(autoId){
 function isDone(entryId, kind){ return !!data.completions[entryId+'_'+kind+'|'+todayISO()]; }
 function toggleDone(entryId, kind){
   const key = entryId+'_'+kind+'|'+todayISO();
-  const wasOver = false;
   data.completions[key] = !data.completions[key];
   saveData();
-  render();
+  renderPanels();
   checkAlarmSound();
 }
 function toggleAusente(entryId){
   const key = entryId+'|'+todayISO();
   data.ausencias[key] = !data.ausencias[key];
   saveData();
-  render();
+  renderPanels();
 }
 
 let lastAlarmState = false;
@@ -535,6 +565,17 @@ function renderPanelContent(auto){
     }
   }
 
+  // Tarjeta destacada: la próxima parada sin hacer
+  if(isToday){
+    const proxima = steps.find(s => !s.ausente && !isDone(s.entryId, s.kind));
+    if(proxima){
+      html += '<div class="next-eyebrow">\u25b6\ufe0f Siguiente parada</div>';
+      html += renderStepCard(proxima, isToday, now, true);
+    } else if(steps.length > 0){
+      html += '<div class="next-done">\ud83c\udf89 Recorrido de hoy completo</div>';
+    }
+  }
+
   // Ruta del día
   const direccionesRuta = steps.filter(s => !s.ausente).map(s => s.direccion);
   const rutaLink = mapsLinkRuta(direccionesRuta);
@@ -546,30 +587,7 @@ function renderPanelContent(auto){
     html += '<div class="empty-state">No hay traslados cargados para este d\u00eda en este auto.</div>';
   } else {
     html += '<div class="timeline">';
-    steps.forEach(s => {
-      const done = isToday && isDone(s.entryId, s.kind);
-      const atrasado = isToday && !s.ausente && !done && s.hora < now;
-      html += '<div class="stop'+(done?' done':'')+(atrasado?' atrasado':'')+(s.ausente?' ausente':'')+'">';
-      html += '<div class="stop-top">';
-      if(isToday && !s.ausente){
-        html += '<input type="checkbox" class="stop-check" '+(done?'checked':'')+' onchange="toggleDone(\''+s.entryId+'\',\''+s.kind+'\')">';
-      } else {
-        html += '<div style="width:22px;"></div>';
-      }
-      html += '<div class="stop-hora">'+s.hora+'</div>';
-      html += '<div class="stop-body">';
-      html += '<div class="stop-kind">'+(s.kind==='recogida'?'Buscar':'Dejar')+'</div>';
-      html += '<div class="stop-nombre">'+escapeHtml(s.nombre)+(s.kind==='entrega'?'<span class="'+badgeClase(s.tipo)+'">'+badgeTexto(s.tipo)+'</span>':'')+(s.ausente?'<span class="badge">Falt\u00f3 hoy</span>':'')+(atrasado?'<span class="atraso-tag">HORA PASADA</span>':'')+'</div>';
-      html += '<div class="stop-ruta">'+escapeHtml(s.lugar||'\u2014')+'</div>';
-      if(s.kind==='recogida' && s.yaEnAuto && s.yaEnAuto.length){ html += '<div class="stop-companeros">\ud83d\ude97 Ya en el auto: '+s.yaEnAuto.map(escapeHtml).join(', ')+'</div>'; }
-      if(s.kind==='entrega' && s.companeros && s.companeros.length){ html += '<div class="stop-companeros">\ud83d\ude97 Tambi\u00e9n en el auto: '+s.companeros.map(escapeHtml).join(', ')+'</div>'; }
-      if(s.notas) html += '<div class="stop-notas">'+escapeHtml(s.notas)+'</div>';
-      html += '<div class="stop-actions">';
-      html += '<a class="mini-btn" href="'+mapsLinkSingle(s.direccion)+'" target="_blank">\ud83d\udccd Abrir en Maps</a>';
-      if(CAN_EDIT) html += '<button class="mini-btn" onclick="abrirModal(\''+s.entryId+'\')">\u270f\ufe0f Editar</button>';
-      if(isToday && s.kind==='recogida') html += '<button class="mini-btn warn" onclick="toggleAusente(\''+s.entryId+'\')">'+(s.ausente?'\u21a9\ufe0f Deshacer ausencia':'\ud83d\udeab Falt\u00f3 hoy')+'</button>';
-      html += '</div></div></div></div>';
-    });
+    steps.forEach(s => { html += renderStepCard(s, isToday, now, false); });
     html += '</div>';
   }
 
@@ -590,6 +608,33 @@ function renderPanelContent(auto){
     html += '<button class="add-btn" onclick="abrirModal(null, \''+auto.id+'\')">+ Agregar traslado</button>';
   }
 
+  return html;
+}
+
+function renderStepCard(s, isToday, now, destacada){
+  const done = isToday && isDone(s.entryId, s.kind);
+  const atrasado = isToday && !s.ausente && !done && s.hora < now;
+  let html = '<div class="stop'+(destacada?' next-card':'')+(done?' done':'')+(atrasado?' atrasado':'')+(s.ausente?' ausente':'')+'">';
+  html += '<div class="stop-top">';
+  if(isToday && !s.ausente){
+    html += '<label class="check-wrap"><input type="checkbox" class="stop-check" '+(done?'checked':'')+' onchange="toggleDone(\''+s.entryId+'\',\''+s.kind+'\')"></label>';
+  } else {
+    html += '<div style="width:46px;"></div>';
+  }
+  html += '<div class="stop-hora">'+s.hora+'</div>';
+  html += '<div class="stop-body">';
+  html += '<div class="stop-kind">'+(s.kind==='recogida'?'\ud83d\udd35 BUSCAR':'\ud83c\udfc1 DEJAR')+'</div>';
+  html += '<div class="stop-nombre">'+escapeHtml(s.nombre)+(s.kind==='entrega'?'<span class="'+badgeClase(s.tipo)+'">'+badgeTexto(s.tipo)+'</span>':'')+(s.ausente?'<span class="badge">Falt\u00f3 hoy</span>':'')+(atrasado?'<span class="atraso-tag">HORA PASADA</span>':'')+'</div>';
+  html += '<div class="stop-ruta">'+escapeHtml(s.lugar||'\u2014')+'</div>';
+  if(s.kind==='recogida' && s.yaEnAuto && s.yaEnAuto.length){ html += '<div class="stop-companeros">\ud83d\ude97 Ya en el auto: '+s.yaEnAuto.map(escapeHtml).join(', ')+'</div>'; }
+  if(s.kind==='entrega' && s.companeros && s.companeros.length){ html += '<div class="stop-companeros">\ud83d\ude97 Tambi\u00e9n en el auto: '+s.companeros.map(escapeHtml).join(', ')+'</div>'; }
+  if(s.notas) html += '<div class="stop-notas">'+escapeHtml(s.notas)+'</div>';
+  html += '<div class="stop-actions">';
+  html += '<a class="mini-btn" href="'+mapsLinkSingle(s.direccion)+'" target="_blank">\ud83d\udccd Abrir en Maps</a>';
+  if(s.telefono){ html += '<a class="mini-btn" href="'+waLink(s.telefono)+'" target="_blank">\ud83d\udcf2 Abrir WhatsApp</a>'; }
+  if(CAN_EDIT) html += '<button class="mini-btn" onclick="abrirModal(\''+s.entryId+'\')">\u270f\ufe0f Editar</button>';
+  if(isToday && s.kind==='recogida') html += '<button class="mini-btn warn" onclick="toggleAusente(\''+s.entryId+'\')">'+(s.ausente?'\u21a9\ufe0f Deshacer ausencia':'\ud83d\udeab Falt\u00f3 hoy')+'</button>';
+  html += '</div></div></div></div>';
   return html;
 }
 
@@ -619,6 +664,7 @@ function abrirModal(id, autoDefault){
   document.getElementById('f-horaEntrega').value = entry ? entry.horaEntrega : '08:00';
   document.getElementById('f-destino').value = entry ? entry.destino : '';
   document.getElementById('f-direccionEntrega').value = entry ? entry.direccionEntrega : '';
+  document.getElementById('f-telefono').value = entry ? (entry.telefono||'') : '';
   document.getElementById('f-notas').value = entry ? entry.notas : '';
 
   document.querySelectorAll('input[name="f-tipo"]').forEach(r => r.checked = (r.value === (entry ? entry.tipo : 'colegio')));
@@ -654,6 +700,7 @@ function guardarEntry(){
     modo,
     dias: modo==='semanal' ? dias : [],
     fecha: modo==='unica' ? document.getElementById('f-fecha').value : null,
+    telefono: document.getElementById('f-telefono').value.trim().replace(/\D/g,''),
     notas: document.getElementById('f-notas').value.trim()
   };
   const idx = data.entries.findIndex(e => e.id === entry.id);
