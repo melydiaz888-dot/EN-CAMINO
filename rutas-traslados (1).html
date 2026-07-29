@@ -1,0 +1,699 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>En Ruta — Traslados</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#F6F4EF;
+    --card:#FFFFFF;
+    --ink:#1E2A2C;
+    --ink-soft:#5C6B6A;
+    --line:#DCD7C9;
+    --alert:#B23A2E;
+    --alert-soft:#F7E4E0;
+    --ok:#3F7D4F;
+    --ok-soft:#E5F0E6;
+    --radius:14px;
+    --shadow:0 2px 10px rgba(30,42,44,0.06);
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:var(--bg);
+    color:var(--ink);
+    font-family:'Inter',system-ui,sans-serif;
+    -webkit-font-smoothing:antialiased;
+    padding-bottom:80px;
+  }
+  h1,h2,h3{font-family:'Fraunces',serif; margin:0;}
+  .app-header{
+    padding:26px 20px 14px;
+    max-width:960px;
+    margin:0 auto;
+  }
+  .app-header .eyebrow{
+    font-family:'IBM Plex Mono',monospace;
+    font-size:12px;
+    letter-spacing:0.08em;
+    text-transform:uppercase;
+    color:var(--ink-soft);
+    margin-bottom:6px;
+    display:flex; align-items:center; gap:8px; flex-wrap:wrap;
+  }
+  .rol-badge{
+    background:var(--ink); color:#fff;
+    padding:2px 9px; border-radius:20px;
+    font-size:10.5px; letter-spacing:0.03em;
+  }
+  .rol-badge.lector{background:var(--ink-soft);}
+  .app-header h1{ font-size:29px; font-weight:700; letter-spacing:-0.01em; }
+  .app-header .fecha{ color:var(--ink-soft); font-size:14px; margin-top:4px; text-transform:capitalize; }
+  .sync-status{
+    font-family:'IBM Plex Mono',monospace; font-size:11.5px; margin-top:8px;
+    display:inline-flex; align-items:center; gap:6px;
+    padding:4px 10px; border-radius:20px;
+    background:var(--ok-soft); color:var(--ok);
+  }
+  .sync-status.error{background:var(--alert-soft); color:var(--alert);}
+  .sync-status.syncing{background:var(--line); color:var(--ink-soft);}
+  .sync-status .sync-dot{width:7px;height:7px;border-radius:50%;background:currentColor;}
+
+  .tabs{ display:flex; gap:8px; max-width:960px; margin:0 auto; padding:0 20px; flex-wrap:wrap; }
+  .tab-btn{
+    border:2px solid var(--line); background:var(--card);
+    border-radius:12px 12px 0 0; padding:12px 16px;
+    font-family:'Fraunces',serif; font-weight:600; font-size:16px;
+    cursor:pointer; color:var(--ink-soft);
+    display:flex; align-items:center; gap:8px;
+    border-bottom:none;
+  }
+  .tab-btn .dot{width:10px;height:10px;border-radius:50%;flex:none;}
+  .tab-btn.active{ border-bottom:2px solid var(--card); margin-bottom:-2px; }
+  .tab-add{
+    border:2px dashed var(--line); background:transparent; border-radius:12px 12px 0 0;
+    padding:12px 16px; color:var(--ink-soft); cursor:pointer; font-size:18px; font-weight:600;
+  }
+
+  .panel{ max-width:960px; margin:0 auto; background:var(--card); border:2px solid var(--line);
+    border-radius:0 0 16px 16px; padding:20px 20px 26px; box-shadow:var(--shadow); display:none; }
+  .panel.active{display:block;}
+
+  .day-pills{ display:flex; gap:6px; margin-bottom:16px; flex-wrap:wrap; }
+  .day-pill{
+    border:1.5px solid var(--line); background:var(--bg); border-radius:9px;
+    padding:8px 4px; font-size:12.5px; font-weight:600; cursor:pointer; color:var(--ink-soft);
+    flex:1; min-width:38px; text-align:center; position:relative;
+  }
+  .day-pill.today-marker::after{
+    content:""; position:absolute; top:4px; right:6px; width:5px; height:5px; border-radius:50%; background:var(--accent,#0B6E63);
+  }
+  .day-pill.active{ background:var(--accent-soft,#E3F0EC); border-color:var(--accent,#0B6E63); color:var(--accent,#0B6E63); }
+
+  .preview-banner{
+    background:var(--bg); border:1.5px dashed var(--line); border-radius:10px;
+    padding:9px 12px; font-size:13px; color:var(--ink-soft); margin-bottom:14px;
+  }
+
+  .alarm-banner{
+    background:var(--alert); color:#fff; border-radius:12px; padding:13px 15px;
+    font-weight:700; font-size:14px; margin-bottom:14px; display:flex; align-items:center; gap:10px;
+  }
+  .capacity-note{
+    font-size:11.5px; color:var(--alert); font-weight:600; margin-top:3px;
+  }
+
+  .section-title{ display:flex; align-items:baseline; justify-content:space-between; margin:22px 0 12px; }
+  .section-title:first-child{margin-top:0;}
+  .section-title h2{font-size:18px;}
+  .section-title .count{ font-family:'IBM Plex Mono',monospace; font-size:12px; color:var(--ink-soft); }
+
+  .route-btn{
+    display:inline-flex; align-items:center; gap:6px; border:none; border-radius:10px;
+    padding:10px 14px; font-size:13px; font-weight:600; cursor:pointer; text-decoration:none;
+    background:var(--accent,#0B6E63); color:#fff;
+  }
+  .route-btn.disabled{background:var(--line); color:var(--ink-soft); pointer-events:none;}
+
+  .timeline{ position:relative; padding-left:26px; }
+  .timeline::before{ content:""; position:absolute; left:7px; top:6px; bottom:6px; width:2px; background:var(--line); }
+  .stop{ position:relative; margin-bottom:12px; background:var(--bg); border:1px solid var(--line); border-radius:var(--radius); padding:12px 14px; }
+  .stop::before{
+    content:""; position:absolute; left:-23px; top:18px; width:14px; height:14px; border-radius:50%;
+    background:var(--card); border:3px solid var(--accent,#5C6B6A);
+  }
+  .stop.done{opacity:0.5;}
+  .stop.done::before{background:var(--ok); border-color:var(--ok);}
+  .stop.atrasado{border-color:var(--alert); background:var(--alert-soft);}
+  .stop.atrasado::before{border-color:var(--alert);}
+  .stop.ausente{opacity:0.45; background:repeating-linear-gradient(135deg, var(--bg), var(--bg) 10px, #eee 10px, #eee 20px);}
+  .stop.ausente .stop-nombre, .stop.ausente .stop-ruta{text-decoration:line-through;}
+
+  .stop-top{ display:flex; align-items:flex-start; gap:10px; }
+  .stop-check{ width:22px;height:22px; flex:none; margin-top:2px; accent-color:var(--ok); cursor:pointer; }
+  .stop-hora{ font-family:'IBM Plex Mono',monospace; font-weight:600; font-size:14px; min-width:44px; }
+  .stop-body{flex:1;}
+  .stop-kind{
+    font-family:'IBM Plex Mono',monospace; font-size:10px; text-transform:uppercase; letter-spacing:0.05em;
+    color:var(--ink-soft); font-weight:600;
+  }
+  .stop-nombre{font-weight:700; font-size:15.5px;}
+  .stop-nombre .badge{
+    font-family:'IBM Plex Mono',monospace; font-size:10.5px; text-transform:uppercase; letter-spacing:0.04em;
+    padding:2px 7px; border-radius:20px; margin-left:8px; background:var(--line); color:var(--ink-soft); font-weight:600;
+  }
+  .badge.colegio{background:#DCE8F5; color:#2A5C8A;}
+  .badge.rehab{background:#EFE0D8; color:#8A4A2A;}
+  .stop-ruta{ font-size:13.5px; color:var(--ink-soft); margin-top:3px; }
+  .stop-companeros{ font-size:12px; color:var(--ink); margin-top:5px; background:#fff; border:1px solid var(--line); display:inline-block; padding:3px 8px; border-radius:20px; }
+  .stop-notas{ font-size:13px; color:var(--ink-soft); font-style:italic; margin-top:4px; }
+  .stop-actions{ display:flex; gap:8px; margin-top:10px; flex-wrap:wrap; }
+  .mini-btn{
+    font-size:12.5px; padding:6px 10px; border-radius:8px; border:1px solid var(--line); background:var(--card);
+    color:var(--ink); cursor:pointer; text-decoration:none; display:inline-flex; align-items:center; gap:4px;
+  }
+  .mini-btn:hover{border-color:var(--ink-soft);}
+  .mini-btn.warn{color:var(--alert); border-color:var(--alert-soft);}
+  .atraso-tag{ font-family:'IBM Plex Mono',monospace; font-size:11px; color:var(--alert); font-weight:600; margin-left:8px; }
+
+  .empty-state{ text-align:center; padding:30px 16px; color:var(--ink-soft); border:1.5px dashed var(--line); border-radius:var(--radius); font-size:14px; }
+
+  .manage-row{ display:flex; align-items:center; gap:10px; padding:10px 12px; border:1px solid var(--line); border-radius:10px; margin-bottom:8px; font-size:13.5px; }
+  .manage-row .m-info{flex:1;}
+  .manage-row .m-info b{font-size:14px;}
+  .manage-row .m-tag{ font-family:'IBM Plex Mono',monospace; font-size:10.5px; color:var(--ink-soft); background:var(--bg); border:1px solid var(--line); border-radius:20px; padding:2px 8px; }
+  .manage-row .m-actions{display:flex; gap:6px;}
+  .icon-btn{ border:1px solid var(--line); background:var(--card); border-radius:8px; width:30px;height:30px; cursor:pointer; font-size:14px; display:flex;align-items:center;justify-content:center; }
+  .icon-btn:hover{border-color:var(--ink-soft);}
+
+  .add-btn{ width:100%; padding:13px; border-radius:12px; border:2px dashed var(--line); background:transparent;
+    color:var(--ink-soft); font-weight:600; font-size:14px; cursor:pointer; margin-top:6px; }
+  .add-btn:hover{border-color:var(--accent,#0B6E63); color:var(--accent,#0B6E63);}
+
+  .overlay{ position:fixed; inset:0; background:rgba(30,42,44,0.45); display:none; align-items:flex-start;
+    justify-content:center; padding:30px 16px; overflow-y:auto; z-index:50; }
+  .overlay.active{display:flex;}
+  .modal{ background:var(--card); border-radius:16px; max-width:460px; width:100%; padding:24px; box-shadow:0 10px 40px rgba(0,0,0,0.2); }
+  .modal h3{font-size:19px; margin-bottom:16px;}
+  .field{margin-bottom:14px;}
+  .field label{ display:block; font-size:12.5px; font-weight:600; color:var(--ink-soft); margin-bottom:5px; text-transform:uppercase; letter-spacing:0.03em; }
+  .field input[type=text], .field input[type=time], .field input[type=date], .field select, .field textarea{
+    width:100%; padding:10px 11px; border:1.5px solid var(--line); border-radius:9px;
+    font-family:'Inter',sans-serif; font-size:14.5px; background:var(--bg); color:var(--ink);
+  }
+  .field textarea{resize:vertical; min-height:44px;}
+  .field-2col{display:flex; gap:10px;}
+  .field-2col .field{flex:1;}
+  .radio-group{display:flex; gap:8px; flex-wrap:wrap;}
+  .radio-group label{ flex:1; display:flex; align-items:center; justify-content:center; gap:6px; border:1.5px solid var(--line);
+    border-radius:9px; padding:9px; font-size:13.5px; font-weight:500; cursor:pointer; text-transform:none; color:var(--ink); min-width:90px; }
+  .days-group{display:flex; gap:5px;}
+  .days-group label{ flex:1; text-align:center; border:1.5px solid var(--line); border-radius:8px; padding:8px 0;
+    font-size:12.5px; font-weight:600; cursor:pointer; color:var(--ink-soft); text-transform:none; }
+  .days-group input{display:none;}
+  .days-group label:has(input:checked){background:#E3F0EC; border-color:#0B6E63; color:#0B6E63;}
+  .modal-actions{display:flex; gap:10px; margin-top:18px;}
+  .btn{flex:1; padding:12px; border-radius:10px; border:none; font-weight:600; font-size:14.5px; cursor:pointer;}
+  .btn-primary{background:var(--ink); color:#fff;}
+  .btn-secondary{background:var(--bg); color:var(--ink-soft); border:1.5px solid var(--line);}
+  .btn-danger{background:var(--alert-soft); color:var(--alert);}
+  .section-label{ font-size:12px; font-weight:700; text-transform:uppercase; letter-spacing:0.04em; color:var(--ink-soft); margin:16px 0 8px; }
+
+  footer{ max-width:960px; margin:26px auto 0; padding:0 20px; font-size:12px; color:var(--ink-soft); text-align:center; }
+  @media (max-width:600px){ .app-header h1{font-size:24px;} .tab-btn{font-size:14px; padding:11px 12px;} }
+</style>
+</head>
+<body>
+
+<div class="app-header">
+  <div class="eyebrow">Traslados · tratamiento cr&oacute;nico <span class="rol-badge" id="rolBadge">Editor</span></div>
+  <h1>En Ruta</h1>
+  <div class="fecha" id="fechaHoy"></div>
+  <div class="sync-status" id="syncStatus"></div>
+</div>
+
+<div class="tabs" id="tabsRow"></div>
+<div id="panelsContainer"></div>
+
+<footer>Los datos se sincronizan a trav&eacute;s de tu Google Sheet. El link que abriste define si pod&eacute;s editar o solo ver/tildar.</footer>
+
+<div class="overlay" id="overlay">
+  <div class="modal">
+    <h3 id="modalTitle">Nuevo traslado</h3>
+    <input type="hidden" id="f-id">
+
+    <div class="field">
+      <label>Auto</label>
+      <select id="f-auto"></select>
+    </div>
+
+    <div class="field">
+      <label>Nombre del chico/a</label>
+      <input type="text" id="f-nombre" placeholder="Ej: Tom&aacute;s">
+    </div>
+
+    <div class="section-label">Recogida</div>
+    <div class="field-2col">
+      <div class="field"><label>Hora</label><input type="time" id="f-horaRecogida"></div>
+      <div class="field"><label>Lugar</label><input type="text" id="f-origen" placeholder="Casa"></div>
+    </div>
+    <div class="field"><label>Direcci&oacute;n exacta (para Maps)</label><input type="text" id="f-direccionOrigen" placeholder="Calle 123, Ciudad"></div>
+
+    <div class="section-label">Entrega</div>
+    <div class="field-2col">
+      <div class="field"><label>Hora</label><input type="time" id="f-horaEntrega"></div>
+      <div class="field"><label>Lugar</label><input type="text" id="f-destino" placeholder="Colegio San Mart&iacute;n"></div>
+    </div>
+    <div class="field"><label>Direcci&oacute;n exacta (para Maps)</label><input type="text" id="f-direccionEntrega" placeholder="Calle 456, Ciudad"></div>
+
+    <div class="field">
+      <label>Tipo de destino</label>
+      <div class="radio-group">
+        <label><input type="radio" name="f-tipo" value="colegio"> Colegio</label>
+        <label><input type="radio" name="f-tipo" value="rehab"> Rehabilitaci&oacute;n</label>
+        <label><input type="radio" name="f-tipo" value="otro"> Otro</label>
+      </div>
+    </div>
+
+    <div class="field">
+      <label>Repetici&oacute;n</label>
+      <div class="radio-group">
+        <label><input type="radio" name="f-modo" value="semanal" onchange="toggleModo()"> Semanal fija</label>
+        <label><input type="radio" name="f-modo" value="unica" onchange="toggleModo()"> Solo una fecha</label>
+      </div>
+    </div>
+
+    <div class="field" id="grupo-dias">
+      <label>D&iacute;as</label>
+      <div class="days-group">
+        <label><input type="checkbox" value="1"><span>L</span></label>
+        <label><input type="checkbox" value="2"><span>M</span></label>
+        <label><input type="checkbox" value="3"><span>M</span></label>
+        <label><input type="checkbox" value="4"><span>J</span></label>
+        <label><input type="checkbox" value="5"><span>V</span></label>
+        <label><input type="checkbox" value="6"><span>S</span></label>
+        <label><input type="checkbox" value="0"><span>D</span></label>
+      </div>
+    </div>
+    <div class="field" id="grupo-fecha" style="display:none;">
+      <label>Fecha</label>
+      <input type="date" id="f-fecha">
+    </div>
+
+    <div class="field"><label>Notas (opcional)</label><textarea id="f-notas" placeholder="Ej: llevar mochila de kinesiolog&iacute;a"></textarea></div>
+
+    <div class="modal-actions">
+      <button class="btn btn-secondary" onclick="cerrarModal()">Cancelar</button>
+      <button class="btn btn-primary" onclick="guardarEntry()">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const STORAGE_KEY = 'en_ruta_data_v2';
+const MAX_EN_AUTO = 4;
+const PALETTE = [
+  {c:'#0B6E63', s:'#E3F0EC'}, {c:'#7A3B69', s:'#F1E4EC'}, {c:'#3B5B92', s:'#E4EAF5'},
+  {c:'#8A5A2A', s:'#F3E7D8'}, {c:'#4A6741', s:'#E7EEE3'}, {c:'#8A3A4A', s:'#F3E0E3'}
+];
+const DIAS_ORDEN = [1,2,3,4,5,6,0];
+const DIAS_LABEL = {0:'Dom',1:'Lun',2:'Mar',3:'Mi\u00e9',4:'Jue',5:'Vie',6:'S\u00e1b'};
+
+// ====== CONFIGURACIÓN DE SINCRONIZACIÓN ======
+const API_URL = 'https://script.google.com/macros/s/AKfycbyN9ZIem9hxAqJbR9Vq9tBHrvXffbYsfCIqWhAGZqVPXf5jWle1RA-UzTag036_Gh8o/exec';
+// ================================================
+
+const params = new URLSearchParams(window.location.search);
+const ROL = params.get('rol') === 'lector' ? 'lector' : 'editor';
+const CAN_EDIT = ROL === 'editor';
+let lockedAuto = params.get('auto') ? params.get('auto') : null;
+
+function isConfigured(){ return API_URL && API_URL.indexOf('http') === 0; }
+
+function defaultData(){
+  return {
+    autos: [{id:'1', nombre:'Auto 1', color:PALETTE[0].c, colorSoft:PALETTE[0].s},
+            {id:'2', nombre:'Auto 2', color:PALETTE[1].c, colorSoft:PALETTE[1].s}],
+    entries: [], completions: {}, ausencias: {}
+  };
+}
+function loadLocal(){
+  try{ const raw = localStorage.getItem(STORAGE_KEY); if(raw) return normalize(JSON.parse(raw)); }catch(e){}
+  return defaultData();
+}
+function normalize(d){
+  if(!d) return defaultData();
+  if(!d.autos || !d.autos.length) d.autos = defaultData().autos;
+  if(!d.entries) d.entries = [];
+  if(!d.completions) d.completions = {};
+  if(!d.ausencias) d.ausencias = {};
+  return d;
+}
+function saveLocal(){ localStorage.setItem(STORAGE_KEY, JSON.stringify(data)); }
+
+function setSyncStatus(state){
+  const el = document.getElementById('syncStatus');
+  if(!isConfigured()){ el.className='sync-status syncing'; el.innerHTML='<span class="sync-dot"></span>Modo local (sin compartir todav\u00eda)'; return; }
+  if(state==='ok'){ el.className='sync-status'; el.innerHTML='<span class="sync-dot"></span>Sincronizado'; }
+  else if(state==='syncing'){ el.className='sync-status syncing'; el.innerHTML='<span class="sync-dot"></span>Sincronizando\u2026'; }
+  else { el.className='sync-status error'; el.innerHTML='<span class="sync-dot"></span>Sin conexi\u00f3n \u2014 \u00faltima versi\u00f3n guardada'; }
+}
+async function fetchRemote(){
+  if(!isConfigured()) return null;
+  try{ const res = await fetch(API_URL + '?t=' + Date.now()); if(!res.ok) throw 0; return normalize(await res.json()); }
+  catch(e){ return null; }
+}
+async function pushRemote(){
+  if(!isConfigured() || !CAN_EDIT_ACTION) return;
+  setSyncStatus('syncing');
+  try{
+    await fetch(API_URL, { method:'POST', headers:{'Content-Type':'text/plain;charset=utf-8'}, body: JSON.stringify(data) });
+    setSyncStatus('ok');
+  }catch(e){ setSyncStatus('error'); }
+}
+// Los lectores SÍ pueden empujar cambios (tildes, ausencias) aunque no editen horarios
+const CAN_EDIT_ACTION = true;
+function saveData(){ saveLocal(); pushRemote(); }
+
+let data = loadLocal();
+let currentTab = null;
+let selectedDow = new Date().getDay();
+let editingId = null;
+
+function todayISO(){ const d=new Date(); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
+function nowHHMM(){ const d=new Date(); return String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0'); }
+function escapeHtml(str){ if(!str) return ''; return str.replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])); }
+
+function renderHeaderFecha(){
+  const d = new Date();
+  const dias = ['domingo','lunes','martes','mi\u00e9rcoles','jueves','viernes','s\u00e1bado'];
+  const meses = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
+  document.getElementById('fechaHoy').textContent = dias[d.getDay()] + ' ' + d.getDate() + ' de ' + meses[d.getMonth()] + ' de ' + d.getFullYear();
+  const badge = document.getElementById('rolBadge');
+  badge.textContent = CAN_EDIT ? 'Editor' : 'Solo lectura';
+  badge.className = 'rol-badge' + (CAN_EDIT ? '' : ' lector');
+}
+
+function getAuto(id){ return data.autos.find(a => String(a.id) === String(id)); }
+
+function mapsLinkSingle(direccion){ return 'https://www.google.com/maps/dir/?api=1&destination=' + encodeURIComponent(direccion) + '&travelmode=driving'; }
+function mapsLinkRuta(direcciones){
+  if(direcciones.length === 0) return null;
+  if(direcciones.length === 1) return mapsLinkSingle(direcciones[0]);
+  const destino = direcciones[direcciones.length-1];
+  const waypoints = direcciones.slice(0,-1).map(encodeURIComponent).join('|');
+  return 'https://www.google.com/maps/dir/?api=1&destination=' + encodeURIComponent(destino) + '&waypoints=' + waypoints + '&travelmode=driving';
+}
+
+function badgeClase(tipo){ if(tipo==='colegio') return 'badge colegio'; if(tipo==='rehab') return 'badge rehab'; return 'badge'; }
+function badgeTexto(tipo){ if(tipo==='colegio') return 'Colegio'; if(tipo==='rehab') return 'Rehab'; return 'Otro'; }
+
+// Construye la lista de pasos (recogida + entrega) ordenada cronológicamente para un auto+día
+function buildSteps(autoId, dow){
+  const isToday = dow === new Date().getDay();
+  const iso = todayISO();
+  let ents = data.entries.filter(e => String(e.auto) === String(autoId) && e.modo === 'semanal' && e.dias.includes(dow));
+  if(isToday){
+    ents = ents.concat(data.entries.filter(e => String(e.auto) === String(autoId) && e.modo === 'unica' && e.fecha === iso));
+  }
+  let steps = [];
+  ents.forEach(e => {
+    const ausenteKey = e.id + '|' + iso;
+    const ausente = isToday && !!data.ausencias[ausenteKey];
+    steps.push({entryId:e.id, kind:'recogida', hora:e.horaRecogida||'00:00', nombre:e.nombre, lugar:e.origen, direccion: e.direccionOrigen||e.origen, notas:e.notas, ausente});
+    steps.push({entryId:e.id, kind:'entrega', hora:e.horaEntrega||'00:00', nombre:e.nombre, lugar:e.destino, direccion: e.direccionEntrega||e.destino, tipo:e.tipo, notas:e.notas, ausente});
+  });
+  steps.sort((a,b) => a.hora.localeCompare(b.hora));
+
+  // Ocupación planificada (según horario, ignorando ausentes)
+  let enAutoPlan = new Set();
+  steps.forEach(s => {
+    if(s.ausente) return;
+    if(s.kind === 'recogida'){ s.yaEnAuto = Array.from(enAutoPlan); enAutoPlan.add(s.nombre); s.ocupacionTrasSubir = enAutoPlan.size; }
+    else { s.companeros = Array.from(enAutoPlan).filter(n => n !== s.nombre); enAutoPlan.delete(s.nombre); }
+  });
+  return {steps, isToday};
+}
+
+// Ocupación EN VIVO real, según tildes efectivamente marcados (solo aplica a hoy)
+function ocupacionEnVivo(autoId){
+  const iso = todayISO();
+  const {steps, isToday} = buildSteps(autoId, new Date().getDay());
+  if(!isToday) return [];
+  const dentro = [];
+  steps.forEach(s => {
+    if(s.ausente) return;
+    const key = s.entryId + '_' + s.kind + '|' + iso;
+    const done = !!data.completions[key];
+    if(s.kind === 'recogida' && done) dentro.push(s.nombre);
+    if(s.kind === 'entrega' && done){ const idx = dentro.indexOf(s.nombre); if(idx>=0) dentro.splice(idx,1); }
+  });
+  return dentro;
+}
+
+function isDone(entryId, kind){ return !!data.completions[entryId+'_'+kind+'|'+todayISO()]; }
+function toggleDone(entryId, kind){
+  const key = entryId+'_'+kind+'|'+todayISO();
+  const wasOver = false;
+  data.completions[key] = !data.completions[key];
+  saveData();
+  render();
+  checkAlarmSound();
+}
+function toggleAusente(entryId){
+  const key = entryId+'|'+todayISO();
+  data.ausencias[key] = !data.ausencias[key];
+  saveData();
+  render();
+}
+
+let lastAlarmState = false;
+function checkAlarmSound(){
+  const overNow = data.autos.some(a => ocupacionEnVivo(a.id).length > MAX_EN_AUTO);
+  if(overNow && !lastAlarmState){ beep(); }
+  lastAlarmState = overNow;
+}
+function beep(){
+  try{
+    const ctx = new (window.AudioContext||window.webkitAudioContext)();
+    const o = ctx.createOscillator(); const g = ctx.createGain();
+    o.type='sine'; o.frequency.value=880; o.connect(g); g.connect(ctx.destination);
+    g.gain.setValueAtTime(0.15, ctx.currentTime);
+    o.start(); o.stop(ctx.currentTime + 0.35);
+  }catch(e){}
+}
+
+function renderTabs(){
+  const row = document.getElementById('tabsRow');
+  let html = '';
+  data.autos.forEach(a => {
+    if(lockedAuto && String(a.id) !== String(lockedAuto)) return;
+    const active = currentTab !== null && String(currentTab) === String(a.id);
+    html += '<button class="tab-btn' + (active?' active':'') + '" style="' + (active ? ('color:'+a.color+';border-color:'+a.color+';background:'+a.colorSoft+';') : '') + '" onclick="switchTab(\''+a.id+'\')"><span class="dot" style="background:'+a.color+'"></span>'+escapeHtml(a.nombre)+'</button>';
+  });
+  if(CAN_EDIT && !lockedAuto){ html += '<button class="tab-add" onclick="addAuto()" title="Agregar auto">+</button>'; }
+  row.innerHTML = html;
+}
+
+function addAuto(){
+  const nombre = prompt('Nombre del nuevo auto (ej: "Auto 3" o el nombre de la persona que maneja):', 'Auto ' + (data.autos.length+1));
+  if(!nombre) return;
+  const pal = PALETTE[data.autos.length % PALETTE.length];
+  const id = 'a' + Date.now();
+  data.autos.push({id, nombre: nombre.trim(), color: pal.c, colorSoft: pal.s});
+  saveData();
+  switchTab(id);
+}
+
+function switchTab(autoId){
+  if(lockedAuto) autoId = lockedAuto;
+  currentTab = autoId;
+  renderTabs();
+  renderPanels();
+}
+
+function renderPanels(){
+  const container = document.getElementById('panelsContainer');
+  container.innerHTML = '';
+  data.autos.forEach(a => {
+    if(lockedAuto && String(a.id) !== String(lockedAuto)) return;
+    const panel = document.createElement('div');
+    panel.className = 'panel' + (String(currentTab) === String(a.id) ? ' active' : '');
+    panel.style.setProperty('--accent', a.color);
+    panel.style.setProperty('--accent-soft', a.colorSoft);
+    panel.innerHTML = renderPanelContent(a);
+    container.appendChild(panel);
+  });
+}
+
+function renderPanelContent(auto){
+  const {steps, isToday} = buildSteps(auto.id, selectedDow);
+  const iso = todayISO();
+  const now = nowHHMM();
+  let html = '';
+
+  // Selector de día
+  html += '<div class="day-pills">';
+  DIAS_ORDEN.forEach(d => {
+    const esHoy = d === new Date().getDay();
+    html += '<div class="day-pill'+(d===selectedDow?' active':'')+(esHoy?' today-marker':'')+'" onclick="setDow('+d+')">'+DIAS_LABEL[d]+'</div>';
+  });
+  html += '</div>';
+
+  if(!isToday){
+    html += '<div class="preview-banner">Est\u00e1s viendo la rutina de referencia del '+DIAS_LABEL[selectedDow]+'. No es hoy, as\u00ed que ac\u00e1 no se puede tildar ni marcar ausencias.</div>';
+  }
+
+  // Alarma en vivo (solo tiene sentido en la vista de hoy)
+  if(isToday){
+    const dentro = ocupacionEnVivo(auto.id);
+    if(dentro.length > MAX_EN_AUTO){
+      html += '<div class="alarm-banner">\u26a0\ufe0f Hay '+dentro.length+' chicos en el auto ahora (m\u00e1ximo '+MAX_EN_AUTO+'): '+dentro.map(escapeHtml).join(', ')+'</div>';
+    }
+  }
+
+  // Ruta del día
+  const direccionesRuta = steps.filter(s => !s.ausente).map(s => s.direccion);
+  const rutaLink = mapsLinkRuta(direccionesRuta);
+  html += '<div class="section-title"><h2>'+(isToday?'Hoy':DIAS_LABEL[selectedDow])+'</h2>';
+  html += '<a class="route-btn'+(rutaLink?'':' disabled')+'" '+(rutaLink?('href="'+rutaLink+'" target="_blank"'):'')+'>Ver recorrido en Maps</a>';
+  html += '</div>';
+
+  if(steps.length === 0){
+    html += '<div class="empty-state">No hay traslados cargados para este d\u00eda en este auto.</div>';
+  } else {
+    html += '<div class="timeline">';
+    steps.forEach(s => {
+      const done = isToday && isDone(s.entryId, s.kind);
+      const atrasado = isToday && !s.ausente && !done && s.hora < now;
+      html += '<div class="stop'+(done?' done':'')+(atrasado?' atrasado':'')+(s.ausente?' ausente':'')+'">';
+      html += '<div class="stop-top">';
+      if(isToday && !s.ausente){
+        html += '<input type="checkbox" class="stop-check" '+(done?'checked':'')+' onchange="toggleDone(\''+s.entryId+'\',\''+s.kind+'\')">';
+      } else {
+        html += '<div style="width:22px;"></div>';
+      }
+      html += '<div class="stop-hora">'+s.hora+'</div>';
+      html += '<div class="stop-body">';
+      html += '<div class="stop-kind">'+(s.kind==='recogida'?'Buscar':'Dejar')+'</div>';
+      html += '<div class="stop-nombre">'+escapeHtml(s.nombre)+(s.kind==='entrega'?'<span class="'+badgeClase(s.tipo)+'">'+badgeTexto(s.tipo)+'</span>':'')+(s.ausente?'<span class="badge">Falt\u00f3 hoy</span>':'')+(atrasado?'<span class="atraso-tag">HORA PASADA</span>':'')+'</div>';
+      html += '<div class="stop-ruta">'+escapeHtml(s.lugar||'\u2014')+'</div>';
+      if(s.kind==='recogida' && s.yaEnAuto && s.yaEnAuto.length){ html += '<div class="stop-companeros">\ud83d\ude97 Ya en el auto: '+s.yaEnAuto.map(escapeHtml).join(', ')+'</div>'; }
+      if(s.kind==='entrega' && s.companeros && s.companeros.length){ html += '<div class="stop-companeros">\ud83d\ude97 Tambi\u00e9n en el auto: '+s.companeros.map(escapeHtml).join(', ')+'</div>'; }
+      if(s.notas) html += '<div class="stop-notas">'+escapeHtml(s.notas)+'</div>';
+      html += '<div class="stop-actions">';
+      html += '<a class="mini-btn" href="'+mapsLinkSingle(s.direccion)+'" target="_blank">\ud83d\udccd Abrir en Maps</a>';
+      if(CAN_EDIT) html += '<button class="mini-btn" onclick="abrirModal(\''+s.entryId+'\')">\u270f\ufe0f Editar</button>';
+      if(isToday && s.kind==='recogida') html += '<button class="mini-btn warn" onclick="toggleAusente(\''+s.entryId+'\')">'+(s.ausente?'\u21a9\ufe0f Deshacer ausencia':'\ud83d\udeab Falt\u00f3 hoy')+'</button>';
+      html += '</div></div></div></div>';
+    });
+    html += '</div>';
+  }
+
+  if(CAN_EDIT){
+    const todos = data.entries.filter(e => String(e.auto) === String(auto.id)).sort((a,b) => (a.horaRecogida||'').localeCompare(b.horaRecogida||''));
+    html += '<div class="section-title"><h2>Todos los traslados</h2><span class="count">'+todos.length+'</span></div>';
+    if(todos.length === 0){
+      html += '<div class="empty-state">A\u00fan no cargaste traslados para este auto.</div>';
+    } else {
+      todos.forEach(e => {
+        const rep = e.modo==='semanal' ? e.dias.slice().sort().map(d=>DIAS_LABEL[d][0]).join('') : (e.fecha||'sin fecha');
+        html += '<div class="manage-row">';
+        html += '<div class="m-info"><b>'+escapeHtml(e.nombre)+'</b> &middot; '+(e.horaRecogida||'--:--')+' '+escapeHtml(e.origen)+' \u2192 '+(e.horaEntrega||'--:--')+' '+escapeHtml(e.destino)+'<br><span class="m-tag">'+(e.modo==='semanal'?'Semanal '+rep:'Fecha '+rep)+'</span> <span class="m-tag">'+badgeTexto(e.tipo)+'</span></div>';
+        html += '<div class="m-actions"><button class="icon-btn" onclick="abrirModal(\''+e.id+'\')" title="Editar">\u270f\ufe0f</button><button class="icon-btn" onclick="borrarEntry(\''+e.id+'\')" title="Eliminar">\ud83d\uddd1\ufe0f</button></div>';
+        html += '</div>';
+      });
+    }
+    html += '<button class="add-btn" onclick="abrirModal(null, \''+auto.id+'\')">+ Agregar traslado</button>';
+  }
+
+  return html;
+}
+
+function setDow(d){ selectedDow = d; renderPanels(); }
+
+function toggleModo(){
+  const modo = document.querySelector('input[name="f-modo"]:checked').value;
+  document.getElementById('grupo-dias').style.display = modo==='semanal' ? 'block' : 'none';
+  document.getElementById('grupo-fecha').style.display = modo==='unica' ? 'block' : 'none';
+}
+
+function abrirModal(id, autoDefault){
+  if(!CAN_EDIT) return;
+  editingId = id;
+  const entry = id ? data.entries.find(e => e.id === id) : null;
+  document.getElementById('modalTitle').textContent = entry ? 'Editar traslado' : 'Nuevo traslado';
+  document.getElementById('f-id').value = id || '';
+
+  const sel = document.getElementById('f-auto');
+  sel.innerHTML = data.autos.map(a => '<option value="'+a.id+'">'+escapeHtml(a.nombre)+'</option>').join('');
+  sel.value = entry ? entry.auto : (autoDefault || currentTab);
+
+  document.getElementById('f-nombre').value = entry ? entry.nombre : '';
+  document.getElementById('f-horaRecogida').value = entry ? entry.horaRecogida : '07:30';
+  document.getElementById('f-origen').value = entry ? entry.origen : 'Casa';
+  document.getElementById('f-direccionOrigen').value = entry ? entry.direccionOrigen : '';
+  document.getElementById('f-horaEntrega').value = entry ? entry.horaEntrega : '08:00';
+  document.getElementById('f-destino').value = entry ? entry.destino : '';
+  document.getElementById('f-direccionEntrega').value = entry ? entry.direccionEntrega : '';
+  document.getElementById('f-notas').value = entry ? entry.notas : '';
+
+  document.querySelectorAll('input[name="f-tipo"]').forEach(r => r.checked = (r.value === (entry ? entry.tipo : 'colegio')));
+  document.querySelectorAll('input[name="f-modo"]').forEach(r => r.checked = (r.value === (entry ? entry.modo : 'semanal')));
+  document.querySelectorAll('.days-group input').forEach(cb => {
+    cb.checked = entry && entry.modo==='semanal' ? entry.dias.includes(parseInt(cb.value)) : ['1','2','3','4','5'].includes(cb.value);
+  });
+  document.getElementById('f-fecha').value = entry && entry.fecha ? entry.fecha : todayISO();
+
+  toggleModo();
+  document.getElementById('overlay').classList.add('active');
+}
+function cerrarModal(){ document.getElementById('overlay').classList.remove('active'); editingId = null; }
+
+function guardarEntry(){
+  const nombre = document.getElementById('f-nombre').value.trim();
+  const destino = document.getElementById('f-destino').value.trim();
+  if(!nombre || !destino){ alert('Complet\u00e1 al menos el nombre y el destino.'); return; }
+  const modo = document.querySelector('input[name="f-modo"]:checked').value;
+  const dias = Array.from(document.querySelectorAll('.days-group input:checked')).map(cb => parseInt(cb.value));
+
+  const entry = {
+    id: editingId || ('e'+Date.now()+Math.random().toString(36).slice(2,6)),
+    auto: document.getElementById('f-auto').value,
+    nombre,
+    horaRecogida: document.getElementById('f-horaRecogida').value || '00:00',
+    origen: document.getElementById('f-origen').value.trim(),
+    direccionOrigen: document.getElementById('f-direccionOrigen').value.trim(),
+    horaEntrega: document.getElementById('f-horaEntrega').value || '00:00',
+    destino,
+    direccionEntrega: document.getElementById('f-direccionEntrega').value.trim(),
+    tipo: document.querySelector('input[name="f-tipo"]:checked').value,
+    modo,
+    dias: modo==='semanal' ? dias : [],
+    fecha: modo==='unica' ? document.getElementById('f-fecha').value : null,
+    notas: document.getElementById('f-notas').value.trim()
+  };
+  const idx = data.entries.findIndex(e => e.id === entry.id);
+  if(idx >= 0) data.entries[idx] = entry; else data.entries.push(entry);
+  saveData();
+  cerrarModal();
+  switchTab(entry.auto);
+}
+function borrarEntry(id){
+  if(!CAN_EDIT) return;
+  if(!confirm('\u00bfEliminar este traslado?')) return;
+  data.entries = data.entries.filter(e => e.id !== id);
+  saveData();
+  renderPanels();
+}
+
+document.getElementById('overlay').addEventListener('click', e => { if(e.target.id==='overlay') cerrarModal(); });
+
+async function init(){
+  renderHeaderFecha();
+  if(lockedAuto){ currentTab = lockedAuto; } else { currentTab = data.autos[0] ? data.autos[0].id : null; }
+  renderTabs();
+  renderPanels();
+  setSyncStatus(null);
+
+  const remote = await fetchRemote();
+  if(remote){ data = remote; saveLocal(); if(lockedAuto){currentTab=lockedAuto;} else if(!getAuto(currentTab)) currentTab = data.autos[0]?data.autos[0].id:null; renderTabs(); renderPanels(); setSyncStatus('ok'); }
+  else if(isConfigured()){ setSyncStatus('error'); }
+  checkAlarmSound();
+
+  setInterval(async () => {
+    if(document.getElementById('overlay').classList.contains('active')) return;
+    const remote = await fetchRemote();
+    if(remote){ data = remote; saveLocal(); renderTabs(); renderPanels(); setSyncStatus('ok'); checkAlarmSound(); }
+    else if(isConfigured()){ setSyncStatus('error'); }
+  }, 20000);
+
+  setInterval(() => { renderPanels(); }, 60000);
+}
+init();
+</script>
+</body>
+</html>
