@@ -371,13 +371,16 @@ async function fetchRemote(){
   try{ const res = await fetch(API_URL + '?t=' + Date.now()); if(!res.ok) throw 0; return normalize(await res.json()); }
   catch(e){ return null; }
 }
+let pendingPush = 0;
 async function pushRemote(){
   if(!isConfigured()) return;
+  pendingPush++;
   setSyncStatus('syncing');
   try{
     await fetch(API_URL, { method:'POST', headers:{'Content-Type':'text/plain;charset=utf-8'}, body: JSON.stringify(data) });
     setSyncStatus('ok');
   }catch(e){ setSyncStatus('error'); }
+  finally{ pendingPush--; }
 }
 function saveData(){ saveLocal(); pushRemote(); }
 
@@ -858,7 +861,9 @@ async function init(){
   setInterval(async () => {
     if(document.getElementById('overlay').classList.contains('active')) return;
     if(document.getElementById('overlayKid').classList.contains('active')) return;
+    if(pendingPush > 0) return;
     const remote = await fetchRemote();
+    if(pendingPush > 0) return;
     if(remote){ data = remote; saveLocal(); renderTabs(); renderPanels(); setSyncStatus('ok'); checkAlarmSound(); }
     else if(isConfigured()){ setSyncStatus('error'); }
   }, 20000);
