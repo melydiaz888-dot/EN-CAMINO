@@ -377,6 +377,15 @@ async function pushRemote(){
   pendingPush++;
   setSyncStatus('syncing');
   try{
+    // Antes de guardar, traemos lo último de la nube y combinamos tildes/ausencias
+    // (en vez de reemplazar todo), para no pisar lo que haya marcado otro dispositivo.
+    const fresh = await fetchRemote();
+    if(fresh){
+      data.completions = Object.assign({}, fresh.completions||{}, data.completions||{});
+      data.ausencias = Object.assign({}, fresh.ausencias||{}, data.ausencias||{});
+      saveLocal();
+      renderPanels();
+    }
     await fetch(API_URL, { method:'POST', headers:{'Content-Type':'text/plain;charset=utf-8'}, body: JSON.stringify(data) });
     setSyncStatus('ok');
   }catch(e){ setSyncStatus('error'); }
@@ -843,6 +852,12 @@ document.getElementById('overlay').addEventListener('click', e => { if(e.target.
 document.getElementById('overlayKid').addEventListener('click', e => { if(e.target.id==='overlayKid') cerrarModalKid(); });
 document.getElementById('overlayAuto').addEventListener('click', e => { if(e.target.id==='overlayAuto') cerrarModalAuto(); });
 
+function remoteEsSospechoso(remote){
+  const remoteVacio = (!remote.kids || remote.kids.length === 0) && (!remote.viajes || remote.viajes.length === 0);
+  const localTieneDatos = data.kids && data.kids.length > 0;
+  return remoteVacio && localTieneDatos;
+}
+
 async function init(){
   renderHeaderFecha();
   if(lockedAuto){ currentTab = lockedAuto; } else { currentTab = data.autos[0] ? data.autos[0].id : 'chicos'; }
@@ -851,10 +866,13 @@ async function init(){
   setSyncStatus(null);
 
   const remote = await fetchRemote();
-  if(remote){
+  if(remote && !remoteEsSospechoso(remote)){
     data = remote; saveLocal();
     if(lockedAuto){ currentTab = lockedAuto; } else if(!getAuto(currentTab) && currentTab !== 'chicos') currentTab = data.autos[0] ? data.autos[0].id : 'chicos';
     renderTabs(); renderPanels(); setSyncStatus('ok');
+  } else if(remote && remoteEsSospechoso(remote)){
+    setSyncStatus('error');
+    console.warn('Se recibieron datos remotos vacíos pero hay datos locales cargados: se ignoran para proteger la información.');
   } else if(isConfigured()){ setSyncStatus('error'); }
   checkAlarmSound();
 
@@ -864,7 +882,8 @@ async function init(){
     if(pendingPush > 0) return;
     const remote = await fetchRemote();
     if(pendingPush > 0) return;
-    if(remote){ data = remote; saveLocal(); renderTabs(); renderPanels(); setSyncStatus('ok'); checkAlarmSound(); }
+    if(remote && !remoteEsSospechoso(remote)){ data = remote; saveLocal(); renderTabs(); renderPanels(); setSyncStatus('ok'); checkAlarmSound(); }
+    else if(remote && remoteEsSospechoso(remote)){ setSyncStatus('error'); }
     else if(isConfigured()){ setSyncStatus('error'); }
   }, 20000);
 
