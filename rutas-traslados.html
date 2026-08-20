@@ -377,15 +377,6 @@ async function pushRemote(){
   pendingPush++;
   setSyncStatus('syncing');
   try{
-    // Antes de guardar, traemos lo último de la nube y combinamos tildes/ausencias
-    // (en vez de reemplazar todo), para no pisar lo que haya marcado otro dispositivo.
-    const fresh = await fetchRemote();
-    if(fresh){
-      data.completions = Object.assign({}, fresh.completions||{}, data.completions||{});
-      data.ausencias = Object.assign({}, fresh.ausencias||{}, data.ausencias||{});
-      saveLocal();
-      renderPanels();
-    }
     await fetch(API_URL, { method:'POST', headers:{'Content-Type':'text/plain;charset=utf-8'}, body: JSON.stringify(data) });
     setSyncStatus('ok');
   }catch(e){ setSyncStatus('error'); }
@@ -852,10 +843,20 @@ document.getElementById('overlay').addEventListener('click', e => { if(e.target.
 document.getElementById('overlayKid').addEventListener('click', e => { if(e.target.id==='overlayKid') cerrarModalKid(); });
 document.getElementById('overlayAuto').addEventListener('click', e => { if(e.target.id==='overlayAuto') cerrarModalAuto(); });
 
+function contarTildesHoy(comp){
+  const iso = todayISO();
+  return Object.keys(comp||{}).filter(k => k.endsWith('|'+iso) && comp[k]).length;
+}
 function remoteEsSospechoso(remote){
   const remoteVacio = (!remote.kids || remote.kids.length === 0) && (!remote.viajes || remote.viajes.length === 0);
   const localTieneDatos = data.kids && data.kids.length > 0;
-  return remoteVacio && localTieneDatos;
+  if(remoteVacio && localTieneDatos) return true;
+
+  const tildesLocal = contarTildesHoy(data.completions);
+  const tildesRemote = contarTildesHoy(remote.completions);
+  if(tildesLocal > 0 && tildesRemote < tildesLocal) return true;
+
+  return false;
 }
 
 async function init(){
