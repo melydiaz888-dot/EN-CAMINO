@@ -852,6 +852,12 @@ function remoteEsSospechoso(remote){
   const localTieneDatos = data.kids && data.kids.length > 0;
   if(remoteVacio && localTieneDatos) return true;
 
+  // No aceptar una versión de la nube con MENOS chicos u horarios de los que ya tenemos
+  // cargados localmente (protege contra agregar un chico/horario nuevo y que la
+  // revisión automática lo pise antes de que termine de guardarse del todo).
+  if(remote.kids && data.kids && remote.kids.length < data.kids.length) return true;
+  if(remote.viajes && data.viajes && remote.viajes.length < data.viajes.length) return true;
+
   const tildesLocal = contarTildesHoy(data.completions);
   const tildesRemote = contarTildesHoy(remote.completions);
   if(tildesLocal > 0 && tildesRemote < tildesLocal) return true;
