@@ -180,7 +180,7 @@
 <div class="tabs" id="tabsRow"></div>
 <div id="panelsContainer"></div>
 
-<footer>Los datos se sincronizan a trav&eacute;s de tu Google Sheet. El link que abriste define si pod&eacute;s editar o solo ver/tildar.</footer>
+<footer>Los datos se sincronizan a trav&eacute;s de tu Google Sheet. El link que abriste define si pod&eacute;s editar o solo ver/tildar.<br><span id="diagnostico"></span></footer>
 
 <!-- Modal: chico -->
 <div class="overlay" id="overlayKid">
@@ -372,17 +372,44 @@ async function fetchRemote(){
   catch(e){ return null; }
 }
 let pendingPush = 0;
+function actualizarDiagnostico(extra){
+  const el = document.getElementById('diagnostico');
+  if(!el) return;
+  const tam = JSON.stringify(data).length;
+  const limite = 50000;
+  let msg = 'Tama\u00f1o de datos: ' + tam.toLocaleString('es-AR') + ' / ' + limite.toLocaleString('es-AR') + ' caracteres';
+  if(tam > limite * 0.9) msg = '\u26a0\ufe0f ' + msg + ' \u2014 cerca del l\u00edmite de Google Sheets';
+  if(extra) msg += ' \u2014 ' + extra;
+  el.textContent = msg;
+}
+
 async function pushRemote(){
   if(!isConfigured()) return;
   pendingPush++;
   setSyncStatus('syncing');
   try{
-    await fetch(API_URL, { method:'POST', headers:{'Content-Type':'text/plain;charset=utf-8'}, body: JSON.stringify(data) });
-    setSyncStatus('ok');
-  }catch(e){ setSyncStatus('error'); }
+    const res = await fetch(API_URL, { method:'POST', headers:{'Content-Type':'text/plain;charset=utf-8'}, body: JSON.stringify(data) });
+    let cuerpo = '';
+    try{ cuerpo = await res.text(); }catch(e2){}
+    if(!res.ok){
+      setSyncStatus('error');
+      actualizarDiagnostico('\u274c Google respondi\u00f3 error ' + res.status + ': ' + cuerpo.slice(0,200));
+    } else {
+      setSyncStatus('ok');
+      actualizarDiagnostico('\u2705 \u00faltimo guardado OK');
+    }
+  }catch(e){
+    setSyncStatus('error');
+    actualizarDiagnostico('\u274c No se pudo conectar: ' + e.message);
+  }
   finally{ pendingPush--; }
 }
-function saveData(){ saveLocal(); pushRemote(); }
+function limpiarHistorialViejo(){
+  const iso = todayISO();
+  Object.keys(data.completions).forEach(k => { if(!k.endsWith('|'+iso)) delete data.completions[k]; });
+  Object.keys(data.ausencias).forEach(k => { if(!k.endsWith('|'+iso)) delete data.ausencias[k]; });
+}
+function saveData(){ limpiarHistorialViejo(); saveLocal(); pushRemote(); }
 
 let data = loadLocal();
 let currentTab = null;
@@ -534,6 +561,7 @@ function switchTab(autoId){
 }
 
 function renderPanels(){
+  actualizarDiagnostico();
   const container = document.getElementById('panelsContainer');
   container.innerHTML = '';
   data.autos.forEach(a => {
