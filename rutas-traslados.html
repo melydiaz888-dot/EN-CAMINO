@@ -180,7 +180,7 @@
 <div class="tabs" id="tabsRow"></div>
 <div id="panelsContainer"></div>
 
-<footer>Los datos se sincronizan a trav&eacute;s de tu Google Sheet. El link que abriste define si pod&eacute;s editar o solo ver/tildar.</footer>
+<footer>Los datos se sincronizan a trav&eacute;s de tu Google Sheet. El link que abriste define si pod&eacute;s editar o solo ver/tildar.<br><span id="diagnostico"></span></footer>
 
 <!-- Modal: chico -->
 <div class="overlay" id="overlayKid">
@@ -371,15 +371,42 @@ async function fetchRemote(){
   try{ const res = await fetch(API_URL + '?t=' + Date.now()); if(!res.ok) throw 0; return normalize(await res.json()); }
   catch(e){ return null; }
 }
+let pendingPush = 0;
+function actualizarDiagnostico(extra){
+  const el = document.getElementById('diagnostico');
+  if(!el) return;
+  const tam = JSON.stringify(data).length;
+  let msg = 'Tama\u00f1o de datos: ' + tam.toLocaleString('es-AR') + ' caracteres';
+  if(extra) msg += ' \u2014 ' + extra;
+  el.textContent = msg;
+}
 async function pushRemote(){
   if(!isConfigured()) return;
+  pendingPush++;
   setSyncStatus('syncing');
   try{
-    await fetch(API_URL, { method:'POST', headers:{'Content-Type':'text/plain;charset=utf-8'}, body: JSON.stringify(data) });
-    setSyncStatus('ok');
-  }catch(e){ setSyncStatus('error'); }
+    const res = await fetch(API_URL, { method:'POST', headers:{'Content-Type':'text/plain;charset=utf-8'}, body: JSON.stringify(data) });
+    let cuerpo = '';
+    try{ cuerpo = await res.text(); }catch(e2){}
+    if(!res.ok){
+      setSyncStatus('error');
+      actualizarDiagnostico('\u274c Google respondi\u00f3 error ' + res.status + ': ' + cuerpo.slice(0,200));
+    } else {
+      setSyncStatus('ok');
+      actualizarDiagnostico('\u2705 \u00faltimo guardado OK');
+    }
+  }catch(e){
+    setSyncStatus('error');
+    actualizarDiagnostico('\u274c No se pudo conectar: ' + e.message);
+  }
+  finally{ pendingPush--; }
 }
-function saveData(){ saveLocal(); pushRemote(); }
+function limpiarHistorialViejo(){
+  const iso = todayISO();
+  Object.keys(data.completions).forEach(k => { if(!k.endsWith('|'+iso)) delete data.completions[k]; });
+  Object.keys(data.ausencias).forEach(k => { if(!k.endsWith('|'+iso)) delete data.ausencias[k]; });
+}
+function saveData(){ limpiarHistorialViejo(); saveLocal(); pushRemote(); }
 
 let data = loadLocal();
 let currentTab = null;
@@ -531,6 +558,7 @@ function switchTab(autoId){
 }
 
 function renderPanels(){
+  actualizarDiagnostico();
   const container = document.getElementById('panelsContainer');
   container.innerHTML = '';
   data.autos.forEach(a => {
@@ -659,7 +687,43 @@ function renderKidsGrid(){
     html += '</div>';
   }
   html += '<button class="add-btn" onclick="abrirKidModal(null)">+ Agregar chico</button>';
+  html += '<div style="display:flex; gap:8px; margin-top:10px;">';
+  html += '<button class="mini-btn" style="flex:1;" onclick="descargarBackup()">\ud83d\udcbe Descargar copia de mis datos</button>';
+  html += '<button class="mini-btn" style="flex:1;" onclick="document.getElementById(\'inputRestaurar\').click()">\ud83d\udce4 Restaurar desde archivo</button>';
+  html += '</div>';
+  html += '<input type="file" id="inputRestaurar" accept="application/json" style="display:none;" onchange="restaurarBackup(this.files[0])">';
   return html;
+}
+
+function descargarBackup(){
+  const blob = new Blob([JSON.stringify(data, null, 2)], {type: 'application/json'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'en-ruta-backup-' + todayISO() + '.json';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+function restaurarBackup(file){
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = function(e){
+    try{
+      const parsed = normalize(JSON.parse(e.target.result));
+      if(!confirm('Esto va a reemplazar todo lo que hay cargado ahora por lo del archivo ('+ (parsed.kids?parsed.kids.length:0) +' chicos). \u00bfContinuar?')) return;
+      data = parsed;
+      saveData();
+      renderTabs();
+      renderPanels();
+      alert('Listo, se restauraron los datos del archivo.');
+    }catch(err){
+      alert('No se pudo leer ese archivo. \u00bfSeguro que es un backup de En Ruta (.json)?');
+    }
+  };
+  reader.readAsText(file);
 }
 
 function filtrarChicos(texto){
@@ -840,6 +904,22 @@ document.getElementById('overlay').addEventListener('click', e => { if(e.target.
 document.getElementById('overlayKid').addEventListener('click', e => { if(e.target.id==='overlayKid') cerrarModalKid(); });
 document.getElementById('overlayAuto').addEventListener('click', e => { if(e.target.id==='overlayAuto') cerrarModalAuto(); });
 
+function contarTildesHoy(comp){
+  const iso = todayISO();
+  return Object.keys(comp||{}).filter(k => k.endsWith('|'+iso) && comp[k]).length;
+}
+function remoteEsSospechoso(remote){
+  const remoteVacio = (!remote.kids || remote.kids.length === 0) && (!remote.viajes || remote.viajes.length === 0);
+  const localTieneDatos = data.kids && data.kids.length > 0;
+  if(remoteVacio && localTieneDatos) return true;
+
+  const tildesLocal = contarTildesHoy(data.completions);
+  const tildesRemote = contarTildesHoy(remote.completions);
+  if(tildesLocal > 0 && tildesRemote < tildesLocal) return true;
+
+  return false;
+}
+
 async function init(){
   renderHeaderFecha();
   if(lockedAuto){ currentTab = lockedAuto; } else { currentTab = data.autos[0] ? data.autos[0].id : 'chicos'; }
@@ -848,18 +928,23 @@ async function init(){
   setSyncStatus(null);
 
   const remote = await fetchRemote();
-  if(remote){
+  if(remote && !remoteEsSospechoso(remote)){
     data = remote; saveLocal();
     if(lockedAuto){ currentTab = lockedAuto; } else if(!getAuto(currentTab) && currentTab !== 'chicos') currentTab = data.autos[0] ? data.autos[0].id : 'chicos';
     renderTabs(); renderPanels(); setSyncStatus('ok');
+  } else if(remote && remoteEsSospechoso(remote)){
+    setSyncStatus('error');
   } else if(isConfigured()){ setSyncStatus('error'); }
   checkAlarmSound();
 
   setInterval(async () => {
     if(document.getElementById('overlay').classList.contains('active')) return;
     if(document.getElementById('overlayKid').classList.contains('active')) return;
+    if(pendingPush > 0) return;
     const remote = await fetchRemote();
-    if(remote){ data = remote; saveLocal(); renderTabs(); renderPanels(); setSyncStatus('ok'); checkAlarmSound(); }
+    if(pendingPush > 0) return;
+    if(remote && !remoteEsSospechoso(remote)){ data = remote; saveLocal(); renderTabs(); renderPanels(); setSyncStatus('ok'); checkAlarmSound(); }
+    else if(remote && remoteEsSospechoso(remote)){ setSyncStatus('error'); }
     else if(isConfigured()){ setSyncStatus('error'); }
   }, 20000);
 
