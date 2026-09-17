@@ -434,7 +434,7 @@ function renderHeaderFecha(){
   const meses = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
   document.getElementById('fechaHoy').textContent = dias[d.getDay()] + ' ' + d.getDate() + ' de ' + meses[d.getMonth()] + ' de ' + d.getFullYear();
   const badge = document.getElementById('rolBadge');
-  badge.textContent = CAN_EDIT ? 'Editor' : (CAN_CHECK ? 'Solo lectura' : 'Solo ver');
+  badge.textContent = CAN_EDIT ? 'Editor' : 'Solo lectura';
   badge.className = 'rol-badge' + (CAN_EDIT ? '' : ' lector');
 }
 
