@@ -300,6 +300,11 @@ const ROL = params.get('rol') === 'lector' ? 'lector' : 'editor';
 const CAN_EDIT = ROL === 'editor';
 let lockedAuto = params.get('auto') ? params.get('auto') : null;
 
+function autoPermitido(autoId){ return !lockedAuto || String(autoId) === String(lockedAuto); }
+function puedeCheckear(autoId){
+  return true;
+}
+
 function isConfigured(){ return API_URL && API_URL.indexOf('http') === 0; }
 
 function defaultData(){
@@ -380,12 +385,18 @@ function actualizarDiagnostico(extra){
   if(extra) msg += ' \u2014 ' + extra;
   el.textContent = msg;
 }
+function payloadParaEnviar(){
+  if(CAN_EDIT) return data; // el editor es el único que cambia chicos/horarios/autos: manda todo
+  // un lector solo puede tildar o marcar "no corresponde hoy" — mandamos SOLO eso,
+  // así aunque su copia de chicos/horarios esté vieja, nunca puede pisarlos
+  return { completions: data.completions, ausencias: data.ausencias };
+}
 async function pushRemote(){
   if(!isConfigured()) return;
   pendingPush++;
   setSyncStatus('syncing');
   try{
-    const res = await fetch(API_URL, { method:'POST', headers:{'Content-Type':'text/plain;charset=utf-8'}, body: JSON.stringify(data) });
+    const res = await fetch(API_URL, { method:'POST', headers:{'Content-Type':'text/plain;charset=utf-8'}, body: JSON.stringify(payloadParaEnviar()) });
     let cuerpo = '';
     try{ cuerpo = await res.text(); }catch(e2){}
     if(!res.ok){
@@ -423,7 +434,7 @@ function renderHeaderFecha(){
   const meses = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
   document.getElementById('fechaHoy').textContent = dias[d.getDay()] + ' ' + d.getDate() + ' de ' + meses[d.getMonth()] + ' de ' + d.getFullYear();
   const badge = document.getElementById('rolBadge');
-  badge.textContent = CAN_EDIT ? 'Editor' : 'Solo lectura';
+  badge.textContent = CAN_EDIT ? 'Editor' : (CAN_CHECK ? 'Solo lectura' : 'Solo ver');
   badge.className = 'rol-badge' + (CAN_EDIT ? '' : ' lector');
 }
 
@@ -524,7 +535,7 @@ function renderTabs(){
     html += '<button class="tab-btn'+(activeChicos?' active':'')+'" style="'+(activeChicos?('color:'+CHICOS_COLOR+';border-color:'+CHICOS_COLOR+';background:'+CHICOS_SOFT+';'):'')+'" onclick="switchTab(\'chicos\')">\ud83d\udc65 Chicos</button>';
   }
   data.autos.forEach(a => {
-    if(lockedAuto && String(a.id) !== String(lockedAuto)) return;
+    if(!autoPermitido(a.id)) return;
     const active = currentTab !== null && String(currentTab) === String(a.id);
     html += '<button class="tab-btn' + (active?' active':'') + '" style="' + (active ? ('color:'+a.color+';border-color:'+a.color+';background:'+a.colorSoft+';') : '') + '" onclick="switchTab(\''+a.id+'\')"><span class="dot" style="background:'+a.color+'"></span>'+escapeHtml(a.nombre)+'</button>';
   });
@@ -562,7 +573,7 @@ function renderPanels(){
   const container = document.getElementById('panelsContainer');
   container.innerHTML = '';
   data.autos.forEach(a => {
-    if(lockedAuto && String(a.id) !== String(lockedAuto)) return;
+    if(!autoPermitido(a.id)) return;
     const panel = document.createElement('div');
     panel.className = 'panel' + (String(currentTab) === String(a.id) ? ' active' : '');
     panel.style.setProperty('--accent', a.color);
@@ -580,12 +591,12 @@ function renderPanels(){
   }
 }
 
-function renderStepCard(s, isToday, now, destacada){
+function renderStepCard(s, isToday, now, destacada, canCheck){
   const done = isToday && isDone(s.viajeId, s.kind);
   const atrasado = isToday && !s.ausente && !done && s.hora < now;
   let html = '<div class="stop'+(destacada?' next-card':'')+(done?' done':'')+(atrasado?' atrasado':'')+(s.ausente?' ausente':'')+'">';
   html += '<div class="stop-top">';
-  if(isToday && !s.ausente){
+  if(isToday && !s.ausente && canCheck){
     html += '<label class="check-wrap"><input type="checkbox" class="stop-check" '+(done?'checked':'')+' onchange="toggleDone(\''+s.viajeId+'\',\''+s.kind+'\')"></label>';
   } else {
     html += '<div style="width:46px;"></div>';
@@ -604,7 +615,7 @@ function renderStepCard(s, isToday, now, destacada){
   if(s.telefono){ html += '<a class="mini-btn" href="'+waLink(s.telefono)+'" target="_blank">\ud83d\udcf2 WhatsApp</a>'; }
   if(CAN_EDIT) html += '<button class="mini-btn" onclick="abrirViajeModal(\''+s.viajeId+'\')">\u270f\ufe0f Editar</button>';
   html += '</div>';
-  if(isToday && s.kind==='recogida') html += '<button class="mini-btn warn icon-only" onclick="toggleAusente(\''+s.viajeId+'\')" title="'+(s.ausente?'Deshacer':'No corresponde hoy (falta o lo retira el pap\u00e1/mam\u00e1)')+'">'+(s.ausente?'\u21a9\ufe0f':'\u274c')+'</button>';
+  if(isToday && s.kind==='recogida' && canCheck) html += '<button class="mini-btn warn icon-only" onclick="toggleAusente(\''+s.viajeId+'\')" title="'+(s.ausente?'Deshacer':'No corresponde hoy (falta o lo retira el pap\u00e1/mam\u00e1)')+'">'+(s.ausente?'\u21a9\ufe0f':'\u274c')+'</button>';
   html += '</div></div></div></div>';
   return html;
 }
@@ -612,6 +623,7 @@ function renderStepCard(s, isToday, now, destacada){
 function renderPanelContent(auto){
   const {steps, isToday} = buildSteps(auto.id, selectedDow);
   const now = nowHHMM();
+  const canCheck = puedeCheckear(auto.id);
   let html = '';
 
   html += '<div class="day-pills">';
@@ -621,7 +633,9 @@ function renderPanelContent(auto){
   });
   html += '</div>';
 
-  if(!isToday){
+  if(!canCheck){
+    html += '<div class="preview-banner">\ud83d\udc41\ufe0f Est\u00e1s viendo este auto en modo solo lectura \u2014 pod\u00e9s mirar el recorrido pero no tildar ni marcar ausencias ac\u00e1.</div>';
+  } else if(!isToday){
     html += '<div class="preview-banner">Est\u00e1s viendo la rutina de referencia del '+DIAS_LABEL[selectedDow]+'. No es hoy, as\u00ed que ac\u00e1 no se puede tildar ni marcar ausencias.</div>';
   }
 
@@ -636,7 +650,7 @@ function renderPanelContent(auto){
     const proxima = steps.find(s => !s.ausente && !isDone(s.viajeId, s.kind));
     if(proxima){
       html += '<div class="next-eyebrow">\u25b6\ufe0f Siguiente parada</div>';
-      html += renderStepCard(proxima, isToday, now, true);
+      html += renderStepCard(proxima, isToday, now, true, canCheck);
     } else if(steps.length > 0){
       html += '<div class="next-done">\ud83c\udf89 Recorrido de hoy completo</div>';
     }
@@ -652,7 +666,7 @@ function renderPanelContent(auto){
     html += '<div class="empty-state">No hay traslados cargados para este d\u00eda en este auto.'+(CAN_EDIT?' Carg\u00e1los desde la pesta\u00f1a \ud83d\udc65 Chicos.':'')+'</div>';
   } else {
     html += '<div class="timeline">';
-    steps.forEach(s => { html += renderStepCard(s, isToday, now, false); });
+    steps.forEach(s => { html += renderStepCard(s, isToday, now, false, canCheck); });
     html += '</div>';
   }
 
